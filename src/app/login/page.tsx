@@ -1,0 +1,9 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Alert, Box, Button, Card, CardContent, Stack, TextField, Typography } from "@mui/material";
+export default function Login(){
+  const router=useRouter();const[password,setPassword]=useState("");const[error,setError]=useState("");const[busy,setBusy]=useState(false);
+  const submit=async(event:React.FormEvent)=>{event.preventDefault();setBusy(true);setError("");try{const response=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password})});const data=await response.json();if(!response.ok)throw new Error(data.error);router.push("/");router.refresh();}catch(e){setError(e instanceof Error?e.message:"Could not sign in");}finally{setBusy(false)}};
+  return <Box sx={{minHeight:"100vh",display:"grid",placeItems:"center",bgcolor:"#f3f7fb",p:2}}><Card elevation={0} sx={{width:"100%",maxWidth:420,borderRadius:4,border:"1px solid #dbe5ed"}}><CardContent sx={{p:4}}><Stack spacing={2.5} component="form" onSubmit={submit}><Box sx={{width:42,height:42,borderRadius:2,bgcolor:"primary.main",color:"white",fontSize:25,fontWeight:900,display:"grid",placeItems:"center"}}>1</Box><Box><Typography variant="h4" fontWeight={800}>ONE. Adserver</Typography><Typography color="text.secondary" mt={.5}>Sign in to manage your ad inventory.</Typography></Box><TextField label="Admin password" type="password" autoComplete="current-password" fullWidth required value={password} onChange={e=>setPassword(e.target.value)}/>{error&&<Alert severity="error">{error}</Alert>}<Button type="submit" variant="contained" disabled={busy} size="large">Sign in</Button></Stack></CardContent></Card></Box>;
+}
