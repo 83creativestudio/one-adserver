@@ -129,7 +129,7 @@ docker compose build migrate
 docker compose up -d db
 docker compose run --rm -T migrate < /dev/null
 docker compose up -d --no-deps app
-curl --fail --silent --show-error --retry 12 --retry-delay 5 --max-time 10 http://127.0.0.1:3017/api/health >/dev/null
+curl --fail --silent --show-error --retry-all-errors --retry 12 --retry-delay 5 --max-time 10 http://127.0.0.1:3017/api/health >/dev/null
 
 # Preserve the ONE Control vhost for recovery before changing its routing.
 cp -a "$nginx_site" "$backup_dir/nginx.conf.before-release"
@@ -140,7 +140,7 @@ if ! nginx -t || ! systemctl reload nginx; then
   printf 'Nginx configuration failed; the previous vhost was restored.\n' >&2
   exit 1
 fi
-if ! curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 10 "$domain/api/health" >/dev/null; then
+if ! curl --fail --silent --show-error --retry-all-errors --retry 6 --retry-delay 5 --max-time 10 "$domain/api/health" >/dev/null; then
   cp -a "$backup_dir/nginx.conf.before-release" "$nginx_site"
   nginx -t && systemctl reload nginx
   printf 'Public health check failed; the previous vhost was restored.\n' >&2
