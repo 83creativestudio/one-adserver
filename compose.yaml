@@ -1,3 +1,4 @@
+name: one-adserver
 services:
   db:
     image: mariadb:11.4
@@ -39,7 +40,7 @@ services:
       DELIVERY_SECRET: ${DELIVERY_SECRET:?Set DELIVERY_SECRET}
       TRUST_PROXY: 'true'
     ports:
-      - '127.0.0.1:3000:3000'
+      - '127.0.0.1:${ADSERVER_HOST_PORT:-3017}:3000'
     volumes:
       - uploads:/app/data/uploads
     depends_on:

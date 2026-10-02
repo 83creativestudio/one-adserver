@@ -1,17 +1,31 @@
 # Live deployment checklist
 
-The repository is deployable; deploying it still requires the server, domain, SSH access and approval for that destination. These files have not provisioned a live server or certificates.
+The production domain is `https://adserver.onedigital.com.cy/`. The repository includes a repeatable release script for an existing Docker Compose installation. Initial server provisioning, DNS and TLS certificate setup still require server access.
+
+## One-command releases
+
+Run this in the local repository:
+
+```sh
+./scripts/release.sh "Describe this release"
+```
+
+The default SSH target is `root@49.13.84.162`, the host used for the other ONE Control deployments. Override it with `ADSERVER_DEPLOY_SSH=user@host` if the server changes. The script runs local tests and TypeScript checking, shows all pending files for confirmation, commits and pushes `main`, deploys the exact pushed commit, backs up a running database and uploads, builds the containers, migrates, starts the app, switches the domain's Nginx vhost and checks the public health endpoint. Use `--yes` before the commit message only for an unattended release where all pending files should be committed.
+
+The source, database and secrets live under `/var/www/one-control-sites/adserver.onedigital.com.cy/app`, outside the site's `public` directory. Nginx serves the domain by proxying to the app on loopback port 3017; `public` remains the ONE Control document root and ACME challenge path. Keeping the application outside `public` prevents a future static web-server configuration from serving its `.env`, source or database files.
+
+On the first release the script clones the repository and generates independent server-only credentials. The initial administrator password is stored at `/var/www/one-control-sites/adserver.onedigital.com.cy/private/adserver-admin-password` with mode 600; retrieve it over SSH and keep it in your password manager. Later releases preserve credentials and Docker volumes. The script backs up both MariaDB and uploads under the site's `backups` directory when there is a running database; arrange an off-server backup copy and retention policy. If a health check fails, inspect `docker compose logs app migrate` and the Nginx error log.
 
 ## Docker + MariaDB
 
-1. Install Docker with Compose on the server, point your ad-server domain's DNS to it, and clone this repository into a private application directory.
-2. Create `.env` (mode 600). Set `APP_URL=https://ads.your-domain.com` (no trailing slash), a strong `ADMIN_PASSWORD`, independent random `DELIVERY_SECRET` (at least 32 bytes), `DB_PASSWORD` and `DB_ROOT_PASSWORD`. Generate secrets locally with `openssl rand -hex 32`; never commit them. No seed/default admin account is created.
-3. Run `docker compose build`, then `docker compose up -d`. The migration service applies all five migrations before app startup. MariaDB is not published; the app binds only to server loopback.
-4. Obtain a trusted TLS certificate using your hosting panel or ACME client. Adapt `deploy/nginx.conf.example`, run `nginx -t`, then reload Nginx. Do not enable `TRUST_PROXY=true` with a directly reachable app port or a proxy that forwards a client-supplied X-Real-IP.
+1. The observed ONE Control server has Docker Compose, a trusted certificate, DNS and a static placeholder vhost already configured. The release script handles the application setup and vhost switch.
+2. For a manual setup, clone the repository under the site's `app` directory and create `.env` (mode 600) with `APP_URL=https://adserver.onedigital.com.cy`, `ADSERVER_HOST_PORT=3017`, a strong `ADMIN_PASSWORD`, independent random `DELIVERY_SECRET`, `DB_PASSWORD` and `DB_ROOT_PASSWORD`. Never commit them.
+3. Run `docker compose build migrate`, `docker compose up -d db`, `docker compose run --rm migrate`, and `docker compose up -d --no-deps app`. MariaDB is not published; the app binds only to server loopback.
+4. Use `deploy/nginx.conf.example` for the existing domain, run `nginx -t`, then reload Nginx. Do not enable `TRUST_PROXY=true` with a directly reachable app port or a proxy that forwards a client-supplied X-Real-IP.
 5. Check `docker compose ps`, `docker compose logs --tail=100 app migrate` and the HTTPS `/api/health` endpoint. Configure your existing external monitor to alert when it does not return HTTP 200. Container health alone does not send alerts or restart an unhealthy process.
 6. Sign in, upload a creative, assign the campaign to a placement, publish its tag on a test website and test the JSON endpoint from an app. Confirm image load, one impression, redirect, no duplicate event on replay, pause, daily cap, and no-fill behavior before enabling real campaigns.
 
-For each upgrade: take a backup, pull the reviewed commit, run `docker compose build`, `docker compose run --rm migrate`, then `docker compose up -d app`. Migrations are forward-only; reverting application code does not revert schema. Never use `docker compose down -v` on live data.
+For each upgrade use the release script or take a backup, pull the reviewed commit, build the image, migrate and restart the app. Migrations are forward-only; reverting application code does not revert schema. Never use `docker compose down -v` on live data.
 
 ## Backups and recovery
 

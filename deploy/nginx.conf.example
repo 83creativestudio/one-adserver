@@ -1,32 +1,40 @@
-# Include inside nginx's http context. Replace ads.example.com and certificate paths.
-limit_req_zone $binary_remote_addr zone=one_login:10m rate=5r/m;
+# Managed release configuration for the existing ONE Control site.
+# Installed at /etc/nginx/conf.d/one-control/adserver.onedigital.com.cy.conf.
+limit_req_zone $binary_remote_addr zone=one_adserver_login:10m rate=5r/m;
 server {
-    listen 80;
-    server_name ads.example.com;
-    return 301 https://$host$request_uri;
+    listen 49.13.84.162:80;
+    listen [2a01:4f8:c012:82ed::1]:80;
+    server_name adserver.onedigital.com.cy www.adserver.onedigital.com.cy;
+    location /.well-known/acme-challenge/ {
+        root /var/www/one-control-sites/adserver.onedigital.com.cy/public;
+    }
+    location / { return 301 https://$host$request_uri; }
 }
 server {
-    listen 443 ssl;
-    server_name ads.example.com;
-    ssl_certificate /etc/letsencrypt/live/ads.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/ads.example.com/privkey.pem;
+    listen 49.13.84.162:443 ssl;
+    listen [2a01:4f8:c012:82ed::1]:443 ssl;
+    server_name adserver.onedigital.com.cy www.adserver.onedigital.com.cy;
+    root /var/www/one-control-sites/adserver.onedigital.com.cy/public;
+    ssl_certificate /etc/letsencrypt/live/adserver.onedigital.com.cy/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/adserver.onedigital.com.cy/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     client_max_body_size 6m;
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
     add_header Strict-Transport-Security 'max-age=31536000' always;
-    # Do not write signed ad query strings to access logs.
+    # Signed ad tracking URLs carry tokens in their query strings.
     access_log off;
+    error_log /var/log/nginx/one-control-adserver.onedigital.com.cy.error.log;
     location = /api/auth/login {
-        limit_req zone=one_login burst=5 nodelay;
+        limit_req zone=one_adserver_login burst=5 nodelay;
         limit_req_status 429;
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3017;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-Proto https;
     }
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3017;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-Proto https;
