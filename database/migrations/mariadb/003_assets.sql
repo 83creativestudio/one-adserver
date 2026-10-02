@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS assets (
+  id CHAR(36) PRIMARY KEY, original_name VARCHAR(255) NOT NULL, stored_name VARCHAR(100) NOT NULL UNIQUE,
+  content_type VARCHAR(100) NOT NULL, width INT NOT NULL, height INT NOT NULL,
+  byte_size INT NOT NULL, created_at VARCHAR(24) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

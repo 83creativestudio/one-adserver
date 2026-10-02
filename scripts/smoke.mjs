@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 const base = process.env.SMOKE_BASE || "http://127.0.0.1:3107";
 const password = process.env.SMOKE_PASSWORD;
 if (!password) throw new Error("Set SMOKE_PASSWORD");
@@ -16,8 +17,17 @@ try {
   const advertiser=await post("advertisers",{name:"Smoke test advertiser",contact_email:"test@example.com"});
   const property=await post("properties",{name:"Smoke test site",kind:"website",domain:"example.com"});
   const placement=await post("placements",{name:"Test banner",property_id:property.id,width:300,height:250});
-  const campaign=await post("campaigns",{name:"Test campaign",advertiser_id:advertiser.id,status:"active",start_at:"",end_at:"",daily_cap:0,priority:5});
-  await post("creatives",{name:"Test creative",campaign_id:campaign.id,image_url:"https://example.com/banner.png",target_url:"https://example.com/landing",width:300,height:250});
+  const campaign=await post("campaigns",{name:"Test campaign",advertiser_id:advertiser.id,status:"active",start_at:"",end_at:"",daily_cap:0,priority:5,placement_ids:[placement.id]});
+  const bytes=await sharp({create:{width:300,height:250,channels:3,background:'#7755ff'}}).png().toBuffer();
+  const form=new FormData();form.set('file',new File([bytes],'test.png',{type:'image/png'}));
+  const upload=await fetch(`${base}/api/admin/assets`,{method:'POST',headers:{Cookie:cookie},body:form});
+  const asset=(await upload.json()).asset;
+  if(!upload.ok||!asset)throw new Error('Upload failed');
+  const image=await fetch(`${base}${asset.image_url}`);
+  if(!image.ok||image.headers.get('content-type')!=='image/webp')throw new Error('Uploaded image not accessible');
+  await post("creatives",{name:"Test creative",campaign_id:campaign.id,image_url:asset.image_url,target_url:"https://example.com/landing",width:300,height:250});
+  const edit=await fetch(`${base}/api/admin/campaigns/${campaign.id}`,{method:'PATCH',headers:{'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify({name:'Edited campaign'})});
+  if(!edit.ok)throw new Error('Edit failed');
   const serving=await fetch(`${base}/api/serve?placement=${placement.id}`);
   const served=await serving.json();
   if(!serving.ok||!served.ad?.clickUrl)throw new Error(`Serve failed: ${JSON.stringify(served)}`);
@@ -29,7 +39,12 @@ try {
   if((metrics.totals.impression||0)<1||(metrics.totals.click||0)<1)throw new Error("Metrics did not update");
   const denied=await fetch(`${base}/api/admin/metrics`);
   if(denied.status!==401)throw new Error("Admin access check failed");
-  console.log("PASS: login, CRUD, ad selection, impression, click, metrics, and admin access");
+  await fetch(served.ad.impressionUrl);await fetch(served.ad.clickUrl,{redirect:'manual'});
+  const repeated=await fetch(`${base}/api/admin/metrics`,{headers:{Cookie:cookie}}).then(r=>r.json());
+  if(repeated.totals.impression!==metrics.totals.impression||repeated.totals.click!==metrics.totals.click)throw new Error('Duplicate tracking counted');
+  console.log("PASS: login, CRUD/edit, upload/image retrieval, ad selection, impression/click deduplication, metrics, and admin access");
 } finally {
   for(const [resource,id] of created.reverse()) await fetch(`${base}/api/admin/${resource}/${id}`,{method:"DELETE",headers:{Cookie:cookie}});
+  await fetch(`${base}/api/auth/logout`,{method:'POST',headers:{Cookie:cookie}});
+  if((await fetch(`${base}/api/admin/metrics`,{headers:{Cookie:cookie}})).status!==401)throw new Error('Logout did not revoke session');
 }

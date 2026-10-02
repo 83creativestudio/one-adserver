@@ -5,7 +5,7 @@ import { isAdmin } from "@/lib/auth";
 export const runtime = "nodejs";
 
 export async function PATCH(request: NextRequest, context: {params: Promise<{resource:string;id:string}>}) {
-  if(!isAdmin(request))return NextResponse.json({error:"Unauthorized"},{status:401});
+  if(!await isAdmin(request))return NextResponse.json({error:"Unauthorized"},{status:401});
   const {resource,id} = await context.params;
   if (!resources.includes(resource as Resource)) return NextResponse.json({error:"Unknown resource"}, {status:404});
   try {
@@ -15,7 +15,7 @@ export async function PATCH(request: NextRequest, context: {params: Promise<{res
 }
 
 export async function DELETE(request: NextRequest, context: {params: Promise<{resource:string;id:string}>}) {
-  if(!isAdmin(request))return NextResponse.json({error:"Unauthorized"},{status:401});
+  if(!await isAdmin(request))return NextResponse.json({error:"Unauthorized"},{status:401});
   const {resource,id} = await context.params;
   if (!resources.includes(resource as Resource)) return NextResponse.json({error:"Unknown resource"}, {status:404});
   return await remove(resource as Resource,id) ? NextResponse.json({ok:true}) : NextResponse.json({error:"Not found"},{status:404});

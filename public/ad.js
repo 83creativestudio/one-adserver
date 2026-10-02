@@ -11,9 +11,10 @@
       if(!payload.ad)return;
       var ad=payload.ad;
       var link=document.createElement('a');link.href=ad.clickUrl;link.target='_blank';link.rel='noopener noreferrer sponsored';
-      var image=document.createElement('img');image.src=ad.imageUrl;image.alt=ad.name;image.width=ad.width;image.height=ad.height;image.style.maxWidth='100%';image.style.height='auto';image.style.display='block';
+      var image=document.createElement('img');image.alt=ad.name;image.width=ad.width;image.height=ad.height;image.style.maxWidth='100%';image.style.height='auto';image.style.display='block';
+      image.onload=function(){if(slot._onePixel)return;var pixel=new Image();slot._onePixel=pixel;pixel.src=ad.impressionUrl;};
       link.appendChild(image);slot.appendChild(link);
-      var pixel=new Image();pixel.src=ad.impressionUrl;slot._onePixel=pixel;
+      image.src=ad.imageUrl;
     }).catch(function(){/* An empty slot is the fallback. */});
   });
 })();

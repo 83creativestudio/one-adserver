@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS admin_sessions(token_hash CHAR(64) PRIMARY KEY, credential_version CHAR(64) NOT NULL, created_at VARCHAR(24) NOT NULL, expires_at VARCHAR(24) NOT NULL, revoked_at VARCHAR(24), INDEX session_expiry(expires_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS login_attempts(key_hash CHAR(64) PRIMARY KEY, window_started_at VARCHAR(24) NOT NULL, attempts INT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

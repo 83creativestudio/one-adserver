@@ -27,7 +27,7 @@ See [database setup and schema](docs/database.md) for provisioning, TLS, the tab
 
 1. Add an advertiser.
 2. Add a website or app, then a placement with a width and height.
-3. Create an active campaign for the advertiser.
+3. Create an active campaign for the advertiser and select its allowed placements.
 4. Add an image creative to that campaign with the same width and height as the placement, plus an HTTPS destination URL.
 5. Copy the website tag from Placements, or call the JSON endpoint from an app.
 
@@ -50,7 +50,7 @@ The JSON response includes the image URL, click URL, impression URL, and dimensi
 
 Eligible creatives must match the placement dimensions. Campaigns must be active, inside their optional start/end dates, and under the daily impression cap. Eligible creatives are selected randomly with weights from their campaign priority (1–10). Reports read the event store immediately; there is no hourly reporting delay.
 
-The admin API and dashboard require the admin session when `ADMIN_PASSWORD` is set. Public delivery URLs contain a signed, 24-hour token that links impression and click events to a served creative. Set `DELIVERY_SECRET` to a distinct, long random value in production. Keep both secrets off Git. Run behind HTTPS and a reverse proxy with appropriate request limits.
+The admin API and dashboard use eight-hour server-backed sessions when `ADMIN_PASSWORD` is set (required in production). Signed delivery requests accept one image-load impression within five minutes and one click within 24 hours. Set `DELIVERY_SECRET` to a distinct, long random value in production. Keep both secrets off Git. Run behind HTTPS and a reverse proxy with appropriate request limits.
 
 This is an initial test release. SQLite supports local testing; MariaDB provides server database storage. The serving logic has not yet been validated for distributed high-volume delivery. The app does not yet include multi-user roles, video/VAST, geo or frequency targeting, billing, or fraud detection.
 
@@ -64,3 +64,8 @@ SMOKE_PASSWORD=your-local-password node scripts/smoke.mjs
 ```
 
 The smoke check assumes a running local server at `http://127.0.0.1:3107` unless `SMOKE_BASE` is set. It creates and removes a test campaign. Its request, impression, and click events remain in the local database as historical events.
+## Functional release
+
+Campaign-to-placement assignments, editable/searchable inventory, validated image uploads, signed deduplicated tracking, concurrency-safe daily limits, UTC pacing, and expiring/revocable admin sessions are implemented. Existing campaigns need explicit placement assignments after upgrade.
+
+Run `npm test`, `npm run typecheck`, and `npm run build` to verify. See [deployment and recovery](docs/deployment.md) for Docker/MariaDB, HTTPS, health checks, backup guidance and launch limitations. Live deployment and real publisher/app acceptance testing require server access and have not been completed merely by pushing to GitHub.

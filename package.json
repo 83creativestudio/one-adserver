@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "db:init": "node scripts/database.mjs",
     "db:migrate": "node scripts/database.mjs",
-    "db:test": "node --experimental-strip-types --test tests/database.test.mjs"
+    "db:test": "node --experimental-strip-types --test tests/database.test.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
@@ -42,6 +43,7 @@
     "react-i18next": "^16.3.5",
     "react-intersection-observer": "^10.0.0",
     "react-spring": "^10.0.3",
+    "sharp": "^0.35.5",
     "simplebar-react": "^3.3.2",
     "stylis-plugin-rtl": "^2.1.1",
     "typescript": "^5.9.3",

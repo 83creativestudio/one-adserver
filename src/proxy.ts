@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin } from "@/lib/auth";
 
-export function proxy(request:NextRequest){
-  if(isAdmin(request))return NextResponse.next();
+export async function proxy(request:NextRequest){
+  if(await isAdmin(request))return NextResponse.next();
   return NextResponse.redirect(new URL("/login",request.url));
 }
 

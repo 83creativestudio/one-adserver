@@ -8,6 +8,12 @@ export function createDatabase(env = process.env) {
   if (!['sqlite', 'mariadb'].includes(provider)) throw new Error('DB_PROVIDER must be sqlite or mariadb');
   let connectionPromise;
   let readyPromise;
+  let queue = Promise.resolve();
+  function exclusive(task) {
+    const result = queue.then(task);
+    queue = result.catch(() => {});
+    return result;
+  }
   const migrationDir = resolve(process.cwd(), 'database/migrations', provider);
   const migrations = () => readdirSync(migrationDir).filter(name => /^\d+.*\.sql$/.test(name)).sort().map(name => {
     const sql = readFileSync(resolve(migrationDir, name), 'utf8');
@@ -98,7 +104,28 @@ export function createDatabase(env = process.env) {
     provider,
     migrate,
     prepare(sql) {
-      return Object.fromEntries(['all', 'get', 'run'].map(mode => [mode, async (...params) => { await ready(); return raw(sql, params, mode); }]));
+      return Object.fromEntries(['all', 'get', 'run'].map(mode => [mode, async (...params) => {
+        await ready();
+        return provider === 'sqlite' ? exclusive(() => raw(sql, params, mode)) : raw(sql, params, mode);
+      }]));
+    },
+    async transaction(callback) {
+      await ready();
+      const execute = async () => {
+        const pool = await connect();
+        const conn = provider === 'sqlite' ? pool : await pool.getConnection();
+        try {
+          if (provider === 'sqlite') conn.exec('BEGIN IMMEDIATE'); else await conn.beginTransaction();
+          const tx = { provider, prepare(sql) { return Object.fromEntries(['all', 'get', 'run'].map(mode => [mode, (...params) => raw(sql, params, mode, conn)])); } };
+          const value = await callback(tx);
+          if (provider === 'sqlite') conn.exec('COMMIT'); else await conn.commit();
+          return value;
+        } catch (error) {
+          if (provider === 'sqlite') conn.exec('ROLLBACK'); else await conn.rollback();
+          throw error;
+        } finally { if (provider === 'mariadb') conn.release(); }
+      };
+      return provider === 'sqlite' ? exclusive(execute) : execute();
     },
     async close() { if (connectionPromise) { const conn = await connectionPromise; if (provider === 'sqlite') conn.close(); else await conn.end(); } connectionPromise = undefined; readyPromise = undefined; },
   };

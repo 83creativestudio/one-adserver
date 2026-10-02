@@ -62,6 +62,11 @@ The CLI loads Next.js environment files, including `.env.local`; system environm
 | `campaigns` | Advertiser, name, status, flight dates, daily cap, priority | Belongs to an advertiser |
 | `creatives` | Campaign, name, image URL, destination URL, dimensions | Belongs to a campaign |
 | `events` | Request, impression or click, related IDs, timestamp | Historical records retained after parent deletion |
+| `campaign_placements` | Explicit campaign/placement assignments | Composite key, cascading foreign keys |
+| `assets` | Uploaded image metadata and storage filename | Bytes stored in UPLOAD_DIR |
+| `delivery_requests` | Delivery snapshots, reservations and tracking timestamps | Retained history, unique request ID |
+| `admin_sessions` | Token hashes, credential version, expiry and revocation | Server-backed administrator sessions |
+| `login_attempts` | Hashed throttle buckets and attempt windows | Persistent login throttling |
 | `schema_migrations` | Applied migration version, checksum, timestamp | Tracks schema changes |
 
 Deleting a property cascades to its placements. Deleting an advertiser cascades to its campaigns and creatives. Events intentionally have no foreign key cascade so historical delivery totals survive these deletions. Indexes cover relationships, campaign status, creative dimensions, and event time/campaign/placement/creative lookups. User passwords remain environment configuration; this release has one administrator and does not implement database user accounts.
@@ -86,3 +91,8 @@ TEST_DB_PROVIDER=mariadb DB_NAME=one_adserver_test_backend DB_USER=test_user \
 ```
 
 MariaDB tests require a database name beginning `one_adserver_test_`. Use a disposable database with only test records. The HTTP smoke test in `scripts/smoke.mjs` separately checks the complete serving flow against a running app.
+## Additional functional tables
+
+Migrations 002–005 add `campaign_placements`, `assets`, `delivery_requests`, `admin_sessions`, and `login_attempts`, plus campaign `pacing`. Both database providers use the same logical schema. `schema_migrations` records five migration versions; migration 001 remains unchanged for existing installations.
+
+Assignments cascade with deleted campaigns/placements. Historical delivery requests and events are retained independently. Upload bytes live in `UPLOAD_DIR`; back up this directory together with the database. Session tokens are stored only as hashes. Run migrations before starting an upgraded MariaDB app; SQLite applies pending migrations locally.
