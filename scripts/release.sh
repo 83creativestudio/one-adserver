@@ -115,11 +115,11 @@ timestamp=$(date -u +%Y%m%dT%H%M%SZ)
 backup_dir=$site_root/backups/$timestamp-${commit:0:12}
 mkdir -m 700 -- "$backup_dir"
 if docker compose ps --status running --services | grep -Fxq db; then
-  docker compose exec -T db sh -c 'exec mariadb-dump --single-transaction --user=root --password="$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' > "$backup_dir/database.sql"
+  docker compose exec -T db sh -c 'exec mariadb-dump --single-transaction --user=root --password="$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < /dev/null > "$backup_dir/database.sql"
   if docker compose ps --status running --services | grep -Fxq app; then
-    docker compose exec -T app tar -C /app/data -czf - uploads > "$backup_dir/uploads.tar.gz"
+    docker compose exec -T app tar -C /app/data -czf - uploads < /dev/null > "$backup_dir/uploads.tar.gz"
   else
-    docker compose run --rm --no-deps --entrypoint tar app -C /app/data -czf - uploads > "$backup_dir/uploads.tar.gz"
+    docker compose run --rm --no-deps -T --entrypoint tar app -C /app/data -czf - uploads < /dev/null > "$backup_dir/uploads.tar.gz"
   fi
   printf 'Database and uploads backed up to %s\n' "$backup_dir"
 fi
@@ -127,7 +127,7 @@ fi
 git merge --ff-only "$commit"
 docker compose build migrate
 docker compose up -d db
-docker compose run --rm migrate
+docker compose run --rm -T migrate < /dev/null
 docker compose up -d --no-deps app
 curl --fail --silent --show-error --retry 12 --retry-delay 5 --max-time 10 http://127.0.0.1:3017/api/health >/dev/null
 
