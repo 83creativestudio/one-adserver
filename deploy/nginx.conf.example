@@ -1,6 +1,5 @@
 # Managed release configuration for the existing ONE Control site.
 # Installed at /etc/nginx/conf.d/one-control/adserver.onedigital.com.cy.conf.
-limit_req_zone $binary_remote_addr zone=one_adserver_login:10m rate=5r/m;
 server {
     listen 49.13.84.162:80;
     listen [2a01:4f8:c012:82ed::1]:80;
@@ -26,8 +25,6 @@ server {
     access_log off;
     error_log /var/log/nginx/one-control-adserver.onedigital.com.cy.error.log;
     location = /api/auth/login {
-        limit_req zone=one_adserver_login burst=5 nodelay;
-        limit_req_status 429;
         proxy_pass http://127.0.0.1:3017;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
