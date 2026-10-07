@@ -65,11 +65,13 @@ The CLI loads Next.js environment files, including `.env.local`; system environm
 | `campaign_placements` | Explicit campaign/placement assignments | Composite key, cascading foreign keys |
 | `assets` | Uploaded image metadata and storage filename | Bytes stored in UPLOAD_DIR |
 | `delivery_requests` | Delivery snapshots, reservations and tracking timestamps | Retained history, unique request ID |
-| `admin_sessions` | Token hashes, credential version, expiry and revocation | Server-backed administrator sessions |
+| `admin_sessions` | Legacy token hashes from the original password-only login | Retained for schema compatibility; no longer used for new sign-ins |
+| `admin_users` | Usernames, salted password hashes, creation and update dates | Individual administrator accounts |
+| `user_sessions` | Token hashes, user ID, password version, expiry and revocation | Belongs to an administrator account |
 | `login_attempts` | Hashed throttle buckets and attempt windows | Persistent login throttling |
 | `schema_migrations` | Applied migration version, checksum, timestamp | Tracks schema changes |
 
-Deleting a property cascades to its placements. Deleting an advertiser cascades to its campaigns and creatives. Events intentionally have no foreign key cascade so historical delivery totals survive these deletions. Indexes cover relationships, campaign status, creative dimensions, and event time/campaign/placement/creative lookups. User passwords remain environment configuration; this release has one administrator and does not implement database user accounts.
+Deleting a property cascades to its placements. Deleting an advertiser cascades to its campaigns and creatives. Events intentionally have no foreign key cascade so historical delivery totals survive these deletions. Indexes cover relationships, campaign status, creative dimensions, and event time/campaign/placement/creative lookups. Account passwords are stored as salted scrypt hashes; `ADMIN_PASSWORD` remains server-only bootstrap configuration and is not a login alternative after the first account exists.
 
 ## Migrations and deployment files
 
@@ -77,7 +79,7 @@ Provider-specific SQL is in `database/migrations/sqlite` and `database/migration
 
 SQLite runs migrations in a transaction. MariaDB uses an advisory lock because DDL commits implicitly; migration statements are idempotent so interrupted setup can be rerun. Run migrations once as a deployment step before starting application processes. Include the `database/` directory in the deployed app and run commands from the project root. A database backup remains necessary before future schema changes.
 
-Changing `DB_PROVIDER` selects another database; it does not transfer local records to the live database. No live server has been modified by this setup.
+Changing `DB_PROVIDER` selects another database; it does not transfer local records to the live database.
 
 ## Verification
 
@@ -93,6 +95,6 @@ TEST_DB_PROVIDER=mariadb DB_NAME=one_adserver_test_backend DB_USER=test_user \
 MariaDB tests require a database name beginning `one_adserver_test_`. Use a disposable database with only test records. The HTTP smoke test in `scripts/smoke.mjs` separately checks the complete serving flow against a running app.
 ## Additional functional tables
 
-Migrations 002–005 add `campaign_placements`, `assets`, `delivery_requests`, `admin_sessions`, and `login_attempts`, plus campaign `pacing`. Both database providers use the same logical schema. `schema_migrations` records five migration versions; migration 001 remains unchanged for existing installations.
+Migrations 002–006 add `campaign_placements`, `assets`, `delivery_requests`, `admin_sessions`, `login_attempts`, `admin_users`, and `user_sessions`, plus campaign `pacing`. Both database providers use the same logical schema. `schema_migrations` records six migration versions; migration 001 remains unchanged for existing installations.
 
 Assignments cascade with deleted campaigns/placements. Historical delivery requests and events are retained independently. Upload bytes live in `UPLOAD_DIR`; back up this directory together with the database. Session tokens are stored only as hashes. Run migrations before starting an upgraded MariaDB app; SQLite applies pending migrations locally.

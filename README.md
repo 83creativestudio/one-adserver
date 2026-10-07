@@ -13,7 +13,7 @@ npm run db:init
 npm run dev
 ```
 
-Set a strong `ADMIN_PASSWORD` in `.env.local` before testing the sign-in flow. Open [http://localhost:3000](http://localhost:3000). In development only, leaving `ADMIN_PASSWORD` unset allows local access; production requires it.
+Set a strong `ADMIN_PASSWORD` in `.env.local` before testing the sign-in flow. Open [http://localhost:3000](http://localhost:3000). On first login, use username `admin` and that password; this creates the first database-backed account. Use **Users** in the dashboard to add administrators and change usernames or passwords. In development only, leaving `ADMIN_PASSWORD` unset allows local access to existing dashboard pages, but account management requires signing in; production requires it.
 
 Local data is stored in `data/one-adserver.sqlite`. Schema migrations preserve existing records. Use SQLite's online backup mechanism, or stop the app and back up the database with its WAL companions.
 
@@ -28,7 +28,7 @@ See [database setup and schema](docs/database.md) for provisioning, TLS, the tab
 1. Add an advertiser.
 2. Add a website or app, then a placement with a width and height.
 3. Create an active campaign for the advertiser and select its allowed placements.
-4. Add an image creative to that campaign with the same width and height as the placement, plus an HTTPS destination URL.
+4. Add a JPG, PNG, GIF (including animation) or WebP image creative to that campaign with the same width and height as the placement, plus an HTTPS destination URL.
 5. Copy the website tag from Placements, or call the JSON endpoint from an app.
 
 Website tag:
@@ -50,9 +50,9 @@ The JSON response includes the image URL, click URL, impression URL, and dimensi
 
 Eligible creatives must match the placement dimensions. Campaigns must be active, inside their optional start/end dates, and under the daily impression cap. Eligible creatives are selected randomly with weights from their campaign priority (1–10). Reports read the event store immediately; there is no hourly reporting delay.
 
-The admin API and dashboard use eight-hour server-backed sessions when `ADMIN_PASSWORD` is set (required in production). Signed delivery requests accept one image-load impression within five minutes and one click within 24 hours. Set `DELIVERY_SECRET` to a distinct, long random value in production. Keep both secrets off Git. Run behind HTTPS and a reverse proxy with appropriate request limits.
+The admin API and dashboard use individual accounts with eight-hour server-backed sessions. `ADMIN_PASSWORD` (required in production) is used only to initialize the first account; it stops being a login alternative once an account exists. All created users are administrators; there are no granular roles yet. Password changes invalidate the affected user's sessions. Signed delivery requests accept one image-load impression within five minutes and one click within 24 hours. Set `DELIVERY_SECRET` to a distinct, long random value in production. Keep both secrets off Git. Run behind HTTPS and a reverse proxy with appropriate request limits.
 
-This is an initial test release. SQLite supports local testing; MariaDB provides server database storage. The serving logic has not yet been validated for distributed high-volume delivery. The app does not yet include multi-user roles, video/VAST, geo or frequency targeting, billing, or fraud detection.
+This is an initial test release. SQLite supports local testing; MariaDB provides server database storage. The serving logic has not yet been validated for distributed high-volume delivery. The app does not yet include granular user roles, video/VAST, geo or frequency targeting, billing, or fraud detection.
 
 ## Checks
 
@@ -60,7 +60,7 @@ This is an initial test release. SQLite supports local testing; MariaDB provides
 npm run typecheck
 npm run db:test
 npm run build
-SMOKE_PASSWORD=your-local-password node scripts/smoke.mjs
+SMOKE_USERNAME=admin SMOKE_PASSWORD=your-local-password node scripts/smoke.mjs
 ```
 
 The smoke check assumes a running local server at `http://127.0.0.1:3107` unless `SMOKE_BASE` is set. It creates and removes a test campaign. Its request, impression, and click events remain in the local database as historical events.

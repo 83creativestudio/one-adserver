@@ -1,8 +1,9 @@
 import sharp from 'sharp';
 const base = process.env.SMOKE_BASE || "http://127.0.0.1:3107";
 const password = process.env.SMOKE_PASSWORD;
+const username = process.env.SMOKE_USERNAME || 'admin';
 if (!password) throw new Error("Set SMOKE_PASSWORD");
-const login = await fetch(`${base}/api/auth/login`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password})});
+const login = await fetch(`${base}/api/auth/login`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});
 if (!login.ok) throw new Error(`Login failed: ${login.status}`);
 const cookie = login.headers.get("set-cookie")?.split(";")[0];
 if (!cookie) throw new Error("Missing session cookie");
@@ -24,7 +25,7 @@ try {
   const asset=(await upload.json()).asset;
   if(!upload.ok||!asset)throw new Error('Upload failed');
   const image=await fetch(`${base}${asset.image_url}`);
-  if(!image.ok||image.headers.get('content-type')!=='image/webp')throw new Error('Uploaded image not accessible');
+  if(!image.ok||image.headers.get('content-type')!=='image/png')throw new Error('Uploaded image not accessible');
   await post("creatives",{name:"Test creative",campaign_id:campaign.id,image_url:asset.image_url,target_url:"https://example.com/landing",width:300,height:250});
   const edit=await fetch(`${base}/api/admin/campaigns/${campaign.id}`,{method:'PATCH',headers:{'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify({name:'Edited campaign'})});
   if(!edit.ok)throw new Error('Edit failed');

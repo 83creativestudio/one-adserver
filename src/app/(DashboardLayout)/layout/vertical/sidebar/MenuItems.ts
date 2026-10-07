@@ -1,4 +1,4 @@
-import { IconLayoutDashboard, IconBuildingStore, IconTargetArrow, IconPhoto, IconWorld, IconChartBar, IconCode } from "@tabler/icons-react";
+import { IconLayoutDashboard, IconBuildingStore, IconTargetArrow, IconPhoto, IconWorld, IconChartBar, IconCode, IconUsers } from "@tabler/icons-react";
 
 const Menuitems: Array<{id?:string;navlabel?:boolean;subheader?:string;title?:string;icon?:typeof IconWorld;href?:string;children?:never[]}> = [
   { navlabel: true, subheader: "Workspace" },
@@ -11,6 +11,8 @@ const Menuitems: Array<{id?:string;navlabel?:boolean;subheader?:string;title?:st
   { id: "placements", title: "Placements", icon: IconCode, href: "/placements" },
   { navlabel: true, subheader: "Insights" },
   { id: "reports", title: "Reports", icon: IconChartBar, href: "/reports" },
+  { navlabel: true, subheader: "Administration" },
+  { id: "users", title: "Users", icon: IconUsers, href: "/users" },
 ];
 
 export default Menuitems;

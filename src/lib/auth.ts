@@ -1,14 +1,10 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { db } from './store.ts';
+import { credentialVersion, getUser } from './users.ts';
 export const cookieName='one_admin_session';
 export const sessionSeconds=8*60*60;
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
-const credentials=()=>hash(`session-v2:${process.env.ADMIN_PASSWORD || ''}:${process.env.DELIVERY_SECRET || ''}`);
 export function adminConfigured(){return !!process.env.ADMIN_PASSWORD;}
-export function validPassword(value:string){
-  if(!adminConfigured())return false;
-  return timingSafeEqual(Buffer.from(hash(value)),Buffer.from(hash(process.env.ADMIN_PASSWORD!)));
-}
 export function sessionCookie(request:Request){return request.headers.get('cookie')?.split(';').map(v=>v.trim()).find(v=>v.startsWith(`${cookieName}=`))?.slice(cookieName.length+1)||'';}
 export function sameOrigin(request:Request){
   const origin=request.headers.get('origin');
@@ -17,20 +13,26 @@ export function sameOrigin(request:Request){
 }
 export async function isAdmin(request:Request,now=new Date()){
   if(!['GET','HEAD','OPTIONS'].includes(request.method) && !sameOrigin(request))return false;
-  if(!adminConfigured())return process.env.NODE_ENV==='development';
-  const token=sessionCookie(request);
-  if(!/^[a-f0-9]{64}$/.test(token))return false;
-  const row=await db().prepare('SELECT * FROM admin_sessions WHERE token_hash=?').get(hash(token));
-  return !!row && !row.revoked_at && String(row.expires_at)>now.toISOString() && row.credential_version===credentials();
+  if(!adminConfigured() && process.env.NODE_ENV==='development')return true;
+  return !!await currentUser(request,now);
 }
-export async function createSession(now=new Date()){
+export async function currentUser(request:Request,now=new Date()){
+  if(!['GET','HEAD','OPTIONS'].includes(request.method) && !sameOrigin(request))return null;
+  const token=sessionCookie(request);
+  if(!/^[a-f0-9]{64}$/.test(token))return null;
+  const row=await db().prepare('SELECT u.id,u.username,u.password_hash,s.credential_version,s.expires_at,s.revoked_at FROM user_sessions s JOIN admin_users u ON u.id=s.user_id WHERE s.token_hash=?').get(hash(token)) as {id:string;username:string;password_hash:string;credential_version:string;expires_at:string;revoked_at:string|null}|undefined;
+  return row && !row.revoked_at && row.expires_at>now.toISOString() && row.credential_version===credentialVersion(row) ? {id:row.id,username:row.username} : null;
+}
+export async function createSession(userId:string,now=new Date()){
+  const user=await getUser(userId);
+  if(!user)throw new Error('User not found');
   const token=randomBytes(32).toString('hex');
-  await db().prepare('INSERT INTO admin_sessions(token_hash,credential_version,created_at,expires_at) VALUES(?,?,?,?)').run(hash(token),credentials(),now.toISOString(),new Date(now.getTime()+sessionSeconds*1000).toISOString());
+  await db().prepare('INSERT INTO user_sessions(token_hash,user_id,credential_version,created_at,expires_at) VALUES(?,?,?,?,?)').run(hash(token),userId,credentialVersion(user),now.toISOString(),new Date(now.getTime()+sessionSeconds*1000).toISOString());
   return token;
 }
 export async function revokeSession(request:Request,all=false){
-  if(all)await db().prepare('UPDATE admin_sessions SET revoked_at=? WHERE revoked_at IS NULL').run(new Date().toISOString());
-  else await db().prepare('UPDATE admin_sessions SET revoked_at=? WHERE token_hash=?').run(new Date().toISOString(),hash(sessionCookie(request)));
+  if(all)await db().prepare('UPDATE user_sessions SET revoked_at=? WHERE revoked_at IS NULL').run(new Date().toISOString());
+  else await db().prepare('UPDATE user_sessions SET revoked_at=? WHERE token_hash=?').run(new Date().toISOString(),hash(sessionCookie(request)));
 }
 export async function allowLogin(request:Request,now=new Date()){
   // Enable only behind a proxy that overwrites this header and blocks direct access.

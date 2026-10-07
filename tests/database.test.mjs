@@ -23,7 +23,7 @@ test('migrations, persistence, relationships, reporting and CRUD work on both pr
     await database.migrate();
     await database.migrate();
     const versions = await database.prepare('SELECT * FROM schema_migrations').all();
-    assert.equal(versions.length, 5);
+    assert.equal(versions.length, 6);
     const advertiser = await create('advertisers', { name: 'Δοκιμή 🟢', contact_email: 'test@example.com' });
     const property = await create('properties', { name: 'Test property', kind: 'website', domain: 'example.com' });
     const placement = await create('placements', { property_id: property.id, name: 'Banner', width: 300, height: 250 });
