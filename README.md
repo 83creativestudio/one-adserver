@@ -54,6 +54,8 @@ Eligible creatives must match the placement dimensions. Campaigns must be active
 
 The admin API and dashboard use individual accounts with eight-hour server-backed sessions. `ADMIN_PASSWORD` (required in production) is used only to initialize the first account; it stops being a login alternative once an account exists. All created users are administrators; there are no granular roles yet. Password changes invalidate the affected user's sessions. Signed delivery requests accept one image-load impression within five minutes and one click within 24 hours. Set `DELIVERY_SECRET` to a distinct, long random value in production. Keep both secrets off Git. Run behind HTTPS and a reverse proxy with appropriate request limits.
 
+To reset an existing administrator's password from the live server terminal, run `cd /var/www/one-control-sites/adserver.onedigital.com.cy/app` followed by `docker compose exec -it app npm run admin:reset`. The command prompts twice without echoing the password, updates the database, and checks the app's login endpoint. Add `-- USERNAME` after `admin:reset` to reset a different administrator. Changing `ADMIN_PASSWORD` in `.env` does not update an existing account.
+
 This is an initial test release. SQLite supports local testing; MariaDB provides server database storage. The serving logic has not yet been validated for distributed high-volume delivery. The app does not yet include granular user roles, video/VAST, geo or frequency targeting, billing, or fraud detection.
 
 ## Checks

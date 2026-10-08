@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "db:init": "node scripts/database.mjs",
     "db:migrate": "node scripts/database.mjs",
+    "admin:reset": "node scripts/reset-admin-password.mjs",
     "db:test": "node --experimental-strip-types --test tests/database.test.mjs",
     "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
