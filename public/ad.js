@@ -9,8 +9,11 @@
   };
   if(window.__oneAdserverScan){window.__oneAdserverScan();return;}
   function matches(slot){
-    var device=slot.dataset.oneDevice || 'all';
-    return device==='all' || !!(media[device] && media[device].matches);
+    var devices=(slot.dataset.oneDevice || 'all').split(',');
+    return devices.some(function(device){
+      device=device.trim();
+      return device==='all' || !!(media[device] && media[device].matches);
+    });
   }
   function scan(){
     document.querySelectorAll('[data-one-placement]').forEach(function(slot){

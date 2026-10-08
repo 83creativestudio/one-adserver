@@ -47,3 +47,17 @@ test('all, tablet and desktop tags select the expected viewport without duplicat
  width=390;listeners.forEach(listener=>listener());
  assert.deepEqual(requests.map(url=>new URL(url).searchParams.get('placement')),['all','tablet','desktop','mobile']);
 });
+test('a combined mobile and tablet tag loads on either but not desktop',async()=>{
+ const listeners=[],requests=[];
+ let width=1400;
+ const slot={dataset:{onePlacement:'combined',oneDevice:'mobile,tablet'},appendChild(){}};
+ const context={URL,fetch:async url=>{requests.push(url);return {json:async()=>({ad:null})}},Image:function(){},window:{matchMedia:query=>({get matches(){return query.includes('max-width: 767px')?width<=767:query.includes('min-width: 768px')?width>=768&&width<=1199:width>=1200},addEventListener(_event,listener){listeners.push(listener)}})},document:{currentScript:{src:'https://ads.example/ad.js?v=3'},querySelectorAll:()=>[slot],createElement:()=>({style:{},appendChild(){}})}};
+ vm.runInNewContext(readFileSync(new URL('../public/ad.js',import.meta.url),'utf8'),context);
+ assert.equal(requests.length,0);assert.equal(slot.hidden,true);
+ width=900;listeners.forEach(listener=>listener());
+ assert.equal(requests.length,1);assert.equal(slot.hidden,false);
+ width=390;listeners.forEach(listener=>listener());
+ assert.equal(requests.length,1);assert.equal(slot.hidden,false);
+ width=1400;listeners.forEach(listener=>listener());
+ assert.equal(requests.length,1);assert.equal(slot.hidden,true);
+});
