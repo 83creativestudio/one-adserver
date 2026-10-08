@@ -38,6 +38,8 @@ Website tag:
 <script async src="https://YOUR_ADSERVER_HOST/ad.js"></script>
 ```
 
+In **Placements → Integration**, choose **All devices**, **Desktop**, **Tablet**, or **Mobile** before copying the website tag. Device-specific tags request ads only at their matching viewport width: mobile up to 767px, tablet 768–1199px, desktop 1200px and wider. The default all-device tag works at every width; old tags without `data-one-device` remain all-device. Use separate placements and creatives for different banner sizes, and assign both placements to the desired campaign. Do not rely on CSS hiding alone, because it can request and count an unseen ad.
+
 App delivery request:
 
 ```http
