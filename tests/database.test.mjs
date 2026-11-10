@@ -41,8 +41,14 @@ test('migrations, persistence, relationships, reporting and CRUD work on both pr
     assert.equal(typeof stats.totals.impression, 'number');
     assert.ok(stats.totals.impression >= 1);
     const report = stats.campaigns.find(row => row.id === campaign.id);
+    assert.equal(report.requests, 1);
     assert.equal(report.impressions, 1);
     assert.equal(report.clicks, 1);
+    for (let index = 0; index < 9; index++) await create('campaigns', { advertiser_id: advertiser.id, name: `No activity ${index}`, status: 'paused' });
+    const fullReport = await metrics();
+    assert.equal(fullReport.campaigns.length, 10);
+    assert.equal(fullReport.campaigns.filter(row => row.name.startsWith('No activity')).length, 9);
+    assert.ok(fullReport.campaigns.filter(row => row.name.startsWith('No activity')).every(row => row.requests === 0 && row.impressions === 0 && row.clicks === 0));
     assert.doesNotThrow(() => JSON.stringify(stats));
     await database.close();
     assert.equal((await database.prepare('SELECT name FROM advertisers WHERE id=?').get(advertiser.id)).name, 'Δοκιμή 🟢');

@@ -110,7 +110,7 @@ export async function metrics() {
   const totals = Object.fromEntries(events.map((row) => [row.kind, row.value]));
   const since = new Date(Date.now() - 14 * 86400000).toISOString();
   const daily = await db().prepare("SELECT substr(occurred_at,1,10) AS day, kind, COUNT(*) AS value FROM events WHERE occurred_at >= ? GROUP BY day, kind ORDER BY day").all(since);
-  const campaigns = await db().prepare("SELECT c.id,c.name,c.status,a.name AS advertiser,COALESCE(SUM(CASE WHEN e.kind='impression' THEN 1 ELSE 0 END),0) AS impressions,COALESCE(SUM(CASE WHEN e.kind='click' THEN 1 ELSE 0 END),0) AS clicks FROM campaigns c JOIN advertisers a ON a.id=c.advertiser_id LEFT JOIN events e ON e.campaign_id=c.id GROUP BY c.id,c.name,c.status,a.name ORDER BY impressions DESC LIMIT 8").all();
+  const campaigns = await db().prepare("SELECT c.id,c.name,c.status,c.start_at,c.end_at,a.name AS advertiser,COALESCE(e.requests,0) AS requests,COALESCE(e.impressions,0) AS impressions,COALESCE(e.clicks,0) AS clicks FROM campaigns c JOIN advertisers a ON a.id=c.advertiser_id LEFT JOIN (SELECT campaign_id,SUM(CASE WHEN kind='request' THEN 1 ELSE 0 END) AS requests,SUM(CASE WHEN kind='impression' THEN 1 ELSE 0 END) AS impressions,SUM(CASE WHEN kind='click' THEN 1 ELSE 0 END) AS clicks FROM events WHERE campaign_id<>'' GROUP BY campaign_id) e ON e.campaign_id=c.id ORDER BY impressions DESC,c.created_at DESC,c.id").all();
   const noFill = (await db().prepare("SELECT COUNT(*) AS value FROM delivery_requests WHERE outcome='empty'").get())?.value || 0;
   return { counts, totals, daily, campaigns, noFill };
 }
