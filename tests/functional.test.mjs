@@ -4,7 +4,7 @@ import {mkdtempSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import sharp from 'sharp';
-import {db,create,update,list} from '../src/lib/store.ts';
+import {db,create,update,list,metrics} from '../src/lib/store.ts';
 import {servePlacement,recordDelivery} from '../src/lib/delivery.ts';
 import {signDelivery} from '../src/lib/delivery-token.ts';
 import {createSession,isAdmin,revokeSession,allowLogin,cookieName} from '../src/lib/auth.ts';
@@ -29,6 +29,7 @@ test('assignment isolation, concurrent caps, replay protection, expiry, pacing a
  await create('creatives',{name:'Image',campaign_id:c.id,width:300,height:250,image_url:'https://example.com/a.png',target_url:'https://example.com/'});
  const now=new Date('2026-06-01T12:00:00.000Z');
  assert.equal(await servePlacement(y.id,now),null);
+ assert.equal((await metrics()).noFill,1);
  assert.equal(await servePlacement('missing',now),undefined);
  const ads=(await Promise.all(Array.from({length:20},()=>servePlacement(x.id,now)))).filter(Boolean);
  assert.equal(ads.length,3);

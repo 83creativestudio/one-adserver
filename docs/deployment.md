@@ -53,3 +53,9 @@ Use Node 22.17+; `npm ci`, configure `.env.local`, `npm run db:migrate`, `npm ru
 - Website tags and the JSON app API are supported. This is not yet a native SDK, VAST/video server, auction/RTB platform, billing platform or multi-tenant ad exchange.
 - Sessions last eight hours, are revoked on logout, and invalidate after password/secret changes. The account menu can revoke every session. Login throttling persists in the database.
 - Event/request history is retained. Before high-volume operation, define retention/aggregation, load-test expected traffic, add traffic abuse controls and validate backup/monitor alerts. External image URLs must remain available over HTTPS for HTTPS publishers.
+
+## Reporting scale checks
+
+The first deployment of migration 007 stops the old app during the historical summary backfill so writes cannot be missed; later releases keep the app running through migrations. At current event volume, plan a short maintenance window. Verify that `SELECT SUM(total) FROM event_daily` matches `SELECT COUNT(*) FROM events` before any future raw-history pruning. The repository does not automatically delete history.
+
+Run `LOAD_BASE=https://staging.example.com LOAD_PLACEMENT=<test-placement-id> LOAD_REQUESTS=1000 LOAD_CONCURRENCY=20 node scripts/load-test.mjs` against a staging deployment. It sends real ad requests and records filled/empty responses, errors, throughput, and p50/p95/p99 latency. Use a dedicated placement and repeat at expected and peak traffic. Compare response latency, database CPU, no-fill, and error rates. Do not use the production placement as a load-test target. For the first managed pilot, use provisional acceptance targets of p95 ad response below 200 ms, p99 below 500 ms, fewer than 0.1% server errors at the agreed peak request rate, and report snapshots no more than two minutes old. These targets need a MariaDB staging test and should be revised against real customer traffic.

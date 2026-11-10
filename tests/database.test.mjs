@@ -23,7 +23,7 @@ test('migrations, persistence, relationships, reporting and CRUD work on both pr
     await database.migrate();
     await database.migrate();
     const versions = await database.prepare('SELECT * FROM schema_migrations').all();
-    assert.equal(versions.length, 6);
+    assert.equal(versions.length, 7);
     const advertiser = await create('advertisers', { name: 'Δοκιμή 🟢', contact_email: 'test@example.com' });
     const property = await create('properties', { name: 'Test property', kind: 'website', domain: 'example.com' });
     const placement = await create('placements', { property_id: property.id, name: 'Banner', width: 300, height: 250 });
@@ -37,6 +37,13 @@ test('migrations, persistence, relationships, reporting and CRUD work on both pr
     await assert.rejects(create('campaigns', { advertiser_id: advertiser.id, name: 'Broken', status: 'invalid' }));
     await assert.rejects(create('advertisers', { name: 'a'.repeat(256) }));
     await Promise.all(['request', 'impression', 'click'].map(kind => logEvent(kind, creative.id, campaign.id, placement.id)));
+    // Re-run the data migration against existing raw history to verify backfill.
+    await database.prepare('DELETE FROM event_daily').run();
+    await database.prepare('DELETE FROM schema_migrations WHERE version=?').run('007_event_rollups');
+    await database.migrate();
+    const rolled = await database.prepare('SELECT kind,total FROM event_daily WHERE campaign_id=?').all(campaign.id);
+    assert.equal(rolled.length, 3);
+    assert.ok(rolled.every(row => Number(row.total) === 1));
     const stats = await metrics();
     assert.equal(typeof stats.totals.impression, 'number');
     assert.ok(stats.totals.impression >= 1);

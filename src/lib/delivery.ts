@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { db } from './store.ts';
 import { verifyDelivery } from './delivery-token.ts';
+import { incrementEventDaily, type EventKind } from './event-rollup.ts';
 import type { Transaction } from '../../database/index.mjs';
 type Ad = {id:string;campaign_id:string;name:string;image_url:string;target_url:string;width:number;height:number};
 type Delivery = Ad & {creative_id:string;placement_id:string;created_at:string;expires_at:string;impression_at:string|null;click_at:string|null;outcome:string};
 const lock = (tx:Transaction) => tx.provider === 'mariadb' ? ' FOR UPDATE' : '';
-async function event(tx:Transaction, kind:string, row:{creative_id:string;campaign_id:string;placement_id:string}, now:string) {
+async function event(tx:Transaction, kind:EventKind, row:{creative_id:string;campaign_id:string;placement_id:string}, now:string) {
   await tx.prepare('INSERT INTO events(id,creative_id,campaign_id,placement_id,kind,occurred_at) VALUES(?,?,?,?,?,?)').run(randomUUID(),row.creative_id,row.campaign_id,row.placement_id,kind,now);
+  await incrementEventDaily(tx,kind,row,now);
 }
 export async function servePlacement(placementId:string, now = new Date()) {
   const placement = await db().prepare('SELECT * FROM placements WHERE id=?').get(placementId);

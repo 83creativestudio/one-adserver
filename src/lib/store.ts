@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createDatabase, type Database, type Transaction } from "../../database/index.mjs";
+import { incrementEventDaily, type EventKind } from "./event-rollup.ts";
 
 export type Resource = "advertisers" | "properties" | "placements" | "campaigns" | "creatives";
 export const resources: Resource[] = ["advertisers", "properties", "placements", "campaigns", "creatives"];
@@ -106,15 +107,19 @@ function validate(resource: Resource, data: Record<string, unknown>) {
 
 export async function metrics() {
   const counts = Object.fromEntries(await Promise.all(resources.map(async (resource) => [resource, (await db().prepare(`SELECT COUNT(*) AS value FROM ${resource}`).get() as {value:number}).value])));
-  const events = await db().prepare("SELECT kind, COUNT(*) AS value FROM events GROUP BY kind").all() as {kind:string;value:number}[];
-  const totals = Object.fromEntries(events.map((row) => [row.kind, row.value]));
-  const since = new Date(Date.now() - 14 * 86400000).toISOString();
-  const daily = await db().prepare("SELECT substr(occurred_at,1,10) AS day, kind, COUNT(*) AS value FROM events WHERE occurred_at >= ? GROUP BY day, kind ORDER BY day").all(since);
-  const campaigns = await db().prepare("SELECT c.id,c.name,c.status,c.start_at,c.end_at,a.name AS advertiser,COALESCE(e.requests,0) AS requests,COALESCE(e.impressions,0) AS impressions,COALESCE(e.clicks,0) AS clicks FROM campaigns c JOIN advertisers a ON a.id=c.advertiser_id LEFT JOIN (SELECT campaign_id,SUM(CASE WHEN kind='request' THEN 1 ELSE 0 END) AS requests,SUM(CASE WHEN kind='impression' THEN 1 ELSE 0 END) AS impressions,SUM(CASE WHEN kind='click' THEN 1 ELSE 0 END) AS clicks FROM events WHERE campaign_id<>'' GROUP BY campaign_id) e ON e.campaign_id=c.id ORDER BY impressions DESC,c.created_at DESC,c.id").all();
-  const noFill = (await db().prepare("SELECT COUNT(*) AS value FROM delivery_requests WHERE outcome='empty'").get())?.value || 0;
+  const events = await db().prepare("SELECT kind, SUM(total) AS value FROM event_daily GROUP BY kind").all() as {kind:string;value:number}[];
+  const totals = Object.fromEntries(events.map((row) => [row.kind, Number(row.value)]));
+  const since = new Date(Date.now() - 13 * 86400000).toISOString().slice(0,10);
+  const daily = await db().prepare("SELECT day, kind, SUM(total) AS value FROM event_daily WHERE day>=? GROUP BY day,kind ORDER BY day").all(since);
+  const campaigns = await db().prepare("SELECT c.id,c.name,c.status,c.start_at,c.end_at,a.name AS advertiser,COALESCE(e.requests,0) AS requests,COALESCE(e.impressions,0) AS impressions,COALESCE(e.clicks,0) AS clicks FROM campaigns c JOIN advertisers a ON a.id=c.advertiser_id LEFT JOIN (SELECT campaign_id,SUM(CASE WHEN kind='request' THEN total ELSE 0 END) AS requests,SUM(CASE WHEN kind='impression' THEN total ELSE 0 END) AS impressions,SUM(CASE WHEN kind='click' THEN total ELSE 0 END) AS clicks FROM event_daily WHERE campaign_id<>'' GROUP BY campaign_id) e ON e.campaign_id=c.id ORDER BY impressions DESC,c.created_at DESC,c.id").all();
+  const noFill = Number((await db().prepare("SELECT COALESCE(SUM(total),0) AS value FROM event_daily WHERE campaign_id='' AND kind='request'").get())?.value || 0);
   return { counts, totals, daily, campaigns, noFill };
 }
 
-export async function logEvent(kind: "request" | "impression" | "click", creativeId: string, campaignId: string, placementId: string) {
-  await db().prepare("INSERT INTO events (id,creative_id,campaign_id,placement_id,kind,occurred_at) VALUES (?,?,?,?,?,?)").run(randomUUID(), creativeId, campaignId, placementId, kind, new Date().toISOString());
+export async function logEvent(kind: EventKind, creativeId: string, campaignId: string, placementId: string) {
+  const now = new Date().toISOString();
+  await db().transaction(async tx => {
+    await tx.prepare("INSERT INTO events (id,creative_id,campaign_id,placement_id,kind,occurred_at) VALUES (?,?,?,?,?,?)").run(randomUUID(), creativeId, campaignId, placementId, kind, now);
+    await incrementEventDaily(tx,kind,{creative_id:creativeId,campaign_id:campaignId,placement_id:placementId},now);
+  });
 }

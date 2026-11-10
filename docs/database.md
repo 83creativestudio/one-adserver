@@ -95,6 +95,12 @@ TEST_DB_PROVIDER=mariadb DB_NAME=one_adserver_test_backend DB_USER=test_user \
 MariaDB tests require a database name beginning `one_adserver_test_`. Use a disposable database with only test records. The HTTP smoke test in `scripts/smoke.mjs` separately checks the complete serving flow against a running app.
 ## Additional functional tables
 
-Migrations 002–006 add `campaign_placements`, `assets`, `delivery_requests`, `admin_sessions`, `login_attempts`, `admin_users`, and `user_sessions`, plus campaign `pacing`. Both database providers use the same logical schema. `schema_migrations` records six migration versions; migration 001 remains unchanged for existing installations.
+Migrations 002–006 add `campaign_placements`, `assets`, `delivery_requests`, `admin_sessions`, `login_attempts`, `admin_users`, and `user_sessions`, plus campaign `pacing`. Both database providers use the same logical schema. `schema_migrations` records seven migration versions; migration 001 remains unchanged for existing installations.
 
 Assignments cascade with deleted campaigns/placements. Historical delivery requests and events are retained independently. Upload bytes live in `UPLOAD_DIR`; back up this directory together with the database. Session tokens are stored only as hashes. Run migrations before starting an upgraded MariaDB app; SQLite applies pending migrations locally.
+
+## Reporting summaries and history
+
+Migration 007 adds `event_daily`, keyed by UTC day, campaign, creative, placement, and event kind. It backfills all existing `events` once; new request, impression, and click records update the raw event and daily summary in the same transaction. Dashboard totals, campaign reports, 14-day activity, and no-fill now read summaries instead of scanning all raw rows. The summary has no foreign keys so historical campaign totals survive campaign deletion.
+
+Raw `events` and `delivery_requests` are still retained indefinitely. The proposed policy for a future release is to keep 90 days of raw records and retain daily summaries for lifetime reports, after the owner approves the period and any customer or legal requirements. Do not delete raw rows before verifying the summary backfill and a restorable backup.
