@@ -125,14 +125,15 @@ if docker compose ps --status running --services | grep -Fxq db; then
 fi
 
 git merge --ff-only "$commit"
-docker compose build migrate
-docker compose up -d db
+docker compose build migrate < /dev/null
+docker compose up -d db < /dev/null
 # Old app versions do not write rollups; stop writes only for the one-time backfill.
-if ! docker compose exec -T db sh -c 'mariadb -N -s -u "$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE" -e "SELECT version FROM schema_migrations"' | grep -Fxq 007_event_rollups; then
+versions=$(docker compose exec -T db sh -c 'mariadb -N -s -u "$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE" -e "SELECT version FROM schema_migrations"' < /dev/null)
+if ! grep -Fxq 007_event_rollups <<< "$versions"; then
   docker compose stop app < /dev/null
 fi
 docker compose run --rm -T migrate < /dev/null
-docker compose up -d --no-deps app
+docker compose up -d --no-deps app < /dev/null
 curl --fail --silent --show-error --retry-all-errors --retry 12 --retry-delay 5 --max-time 10 http://127.0.0.1:3017/api/health >/dev/null
 
 # Preserve the ONE Control vhost for recovery before changing its routing.
